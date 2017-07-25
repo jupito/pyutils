@@ -1,0 +1,243 @@
+"""Miscellaneous utility funcionality."""
+
+import argparse
+from functools import lru_cache
+import logging
+from pathlib import Path, PurePath
+import os
+import platform
+import shlex
+import shutil
+import subprocess
+import sys
+import urllib
+
+
+class DefaultValueHelpFormatter(argparse.HelpFormatter):
+    """A formatter that appends possible default value to argument helptext."""
+    def _expand_help(self, action):
+        s = super()._expand_help(action)
+        default = getattr(action, 'default', None)
+        if default is None or default in [False, argparse.SUPPRESS]:
+            return s
+        return '{} (default: {})'.format(s, repr(default))
+
+
+class FileArgumentParser(argparse.ArgumentParser):
+    """Custom ArgumentParser that is better for reading arguments from files.
+
+    Set `fromfile_prefix_chars` to `@` by default; better
+    `convert_arg_line_to_args()`; added `parse_from_files()`; added `add` as a
+    shortcut to `add_argument`.
+    """
+    add = argparse.ArgumentParser.add_argument
+
+    def __init__(self, fromfile_prefix_chars='@', **kwargs):
+        super().__init__(fromfile_prefix_chars=fromfile_prefix_chars, **kwargs)
+
+    def convert_arg_line_to_args(self, arg_line):
+        """Fancier file reading."""
+        return shlex.split(arg_line, comments=True)
+
+    def parse_from_files(self, paths):
+        """Parse known arguments from files."""
+        prefix = self.fromfile_prefix_chars[0]
+        args = ['{}{}'.format(prefix, x) for x in paths]
+        return self.parse_known_args(args)
+
+    # raise_on_error = True
+    # def error(self, message):
+    #     if self.raise_on_error:
+    #         raise ValueError(message)
+    #     super().error(message)
+
+
+def get_basic_parser(formatter_class=DefaultValueHelpFormatter, **kwargs):
+    """Get an argument parser with standard arguments ready."""
+    p = FileArgumentParser(formatter_class=formatter_class, **kwargs)
+    p.add('-v', '--verbose', action='count', default=0,
+          help='increase verbosity')
+    p.add('--logfile', type=Path, help='log file')
+    p.add('--loglevel', default='WARNING', help='log level name')
+    return p
+
+
+def clamp(value, mn, mx):
+    """Clamp value between minimun, maximum."""
+    assert mn <= mx, (mn, mx)
+    return max(min(value, mx), mn)
+
+
+def asline(iterable, sep=' ', end='\n'):
+    """Convert an iterable into a line."""
+    return sep.join(str(x) for x in iterable) + end
+
+
+@lru_cache(maxsize=32)
+def get_prefix(n, factor=1024, prefixes=None):
+    """Get magnitude prefix for number."""
+    if prefixes is None:
+        prefixes = ('',) + tuple('kMGTPEZY')
+    if abs(n) < factor or len(prefixes) == 1:
+        return n, prefixes[0]
+    return get_prefix(n / factor, factor=factor, prefixes=prefixes[1:])
+
+
+def fmt_size(n, unit='B'):
+    """Format file size in human-readable manner (k, M, G, ...)."""
+    if n is None:
+        return '?{}'.format(unit)
+    n, prefix = get_prefix(n)
+    return '{:.0f}{}{}'.format(n, prefix, unit)
+
+
+def fmt_args(cmd, *args, **kwargs):
+    """Split first, then format. To easily have arguments with spaces."""
+    return [x.format(**kwargs) for x in shlex.split(cmd)] + [os.fspath(x) for x
+                                                             in args]
+
+
+def esc_seq(n, s):
+    """Escape sequence. Call sys.stdout.write() to apply."""
+    return '\033]{};{}\007'.format(n, s)
+
+
+def set_term_title(title):
+    """Return control string for setting X terminal title."""
+    return esc_seq(0, title)
+
+
+def set_term_bg(color):
+    """Return control string for setting X terminal background color, for
+    example 'rgb:ff/ee/ee'.
+    """
+    return esc_seq(11, color)
+
+
+def ring_bell():
+    """Bell character."""
+    return '\a'
+
+
+def notify_send(summary, body=None, urgency='normal'):
+    """Send notification."""
+    # TODO
+    d = dict(u=urgency, s=summary)
+    s = 'notify-send -u {u} {s}'
+    lst = fmt_args(s, **d)
+    if body is not None:
+        lst.append(body)
+    return lst
+
+
+def truncate(s, reserved=0, columns=None, ellipsis='…', minimum_length=2):
+    """Truncate string to fit limit, if possible."""
+    if columns is None:
+        columns = shutil.get_terminal_size().columns
+    space_left = max(columns - reserved, minimum_length)
+    if space_left < len(s):
+        s = s[:space_left]
+        if ellipsis:
+            s = s[:-len(ellipsis)] + ellipsis
+    return s
+
+
+def camel(s):
+    """Convert string to CamelCase."""
+    return ''.join(x[0].upper() + x[1:].lower() for x in s.split())
+
+
+def get_loglevel(name):
+    """Return the numeric correspondent of a logging level name."""
+    try:
+        return getattr(logging, name.upper())
+    except AttributeError:
+        raise ValueError('Invalid log level: {}'.format(name))
+
+
+def url_suffix(url):
+    """URL filename suffix."""
+    parsed = urllib.parse.urlparse(url)
+    path = urllib.parse.unquote(parsed.path)  # See also unquote_plus().
+    suffix = PurePath(path).suffix
+    if not suffix:
+        # Well, maybe the filename is in the query part.
+        path = urllib.parse.unquote(parsed.query)
+        suffix = PurePath(path).suffix
+    return suffix
+
+
+def get_progname():
+    """Get program name."""
+    return PurePath(sys.argv[0]).name
+
+
+def get_hostname():
+    """Try to return system hostname in a portable fashion."""
+    name = platform.uname().node
+    if not name:
+        raise OSError(None, 'Could not determine hostname')
+    return name
+
+
+def download(url, dst_path, tmp_path=None, progress=True):
+    """Download file, showing optional progress meter."""
+    # TODO: Use newer py3 libs.
+    def report(cnt, blksize, total):
+        """Reporter callback."""
+        d = dict(d=truncate(os.fspath(dst_path), reserved=15))
+        if total == -1:
+            s = '\r{d}: {p} '
+            d.update(p=fmt_size(cnt * blksize))
+        else:
+            s = '\r{d}: {t} {p:.0%} '
+            d.update(t=fmt_size(total), p=min(cnt * blksize / total, 1))
+        print(s.format(**d), end='', flush=True)
+
+    d = {}
+    if tmp_path is not None:
+        d['filename'] = tmp_path
+    if progress:
+        d['reporthook'] = report
+    try:
+        filename, headers = urllib.request.urlretrieve(url, **d)
+    except urllib.error.ContentTooShortError as e:
+        # Didn't get all that was advertised.
+        logging.error('%s: %s', e, url)
+        return None
+    except urllib.error.HTTPError as e:
+        # Perhaps a problem with authentication, or a 404.
+        logging.error('%s: %s', e, url)
+        return None
+    except urllib.error.URLError as e:
+        logging.exception('%s: %s', e, url)
+        # raise
+        return None
+    except UnicodeEncodeError as e:
+        # Whatever this is... swith to py3 libs.
+        logging.exception('%s: %s', e, url)
+        return None
+    else:
+        shutil.move(filename, dst_path)
+        if progress:
+            print('OK')
+    finally:
+        urllib.request.urlcleanup()
+    return headers
+
+
+def peco(lines, initial=0, index=False, prg='peco'):
+    """Use 'peco' to select items from list. Return selected lines, or None."""
+    args = [prg, '--initial-index={}'.format(initial)]
+    if index:
+        lines = ('{} {}'.format(i, x) for i, x in enumerate(lines))
+    d = dict(input='\n'.join(lines), stdout=subprocess.PIPE,
+             universal_newlines=True)
+    process = subprocess.run(args, **d)
+    if process.stdout:
+        # Filter tailing ''.
+        output_lines = filter(None, process.stdout.split('\n'))
+        if index:
+            return [int(x.split(maxsplit=1)[0]) for x in output_lines]
+        return output_lines
+    return None

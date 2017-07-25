@@ -1,0 +1,182 @@
+#!/usr/bin/python3
+
+"""As 'pack' archive directories into zip files. As 'unpack' extract archives
+to newly created directories named after them (without the suffix). For
+example, 'pack foo' archives directory foo into foo.zip; 'unpack foo.zip'
+extracts foo.zip to directory foo.
+"""
+
+import logging
+import os
+try:
+    from pathlib2 import Path
+except ImportError:
+    from pathlib import Path
+import subprocess
+import sys
+
+from files import copy_times, move, rm_rf, temp_dir
+from misc import fmt_args, get_basic_parser
+
+
+class MyError(Exception):
+    """Custom error."""
+
+
+def parse_args():
+    """Parse arguments."""
+    p = get_basic_parser(description=__doc__)
+    p.add_argument('-d', '--delete', action='store_true',
+                   help='delete archive files after succesful extraction')
+    p.add_argument('-t', '--target', type=Path,
+                   help='target directory if other than source parent')
+    p.add_argument('src', nargs='+', type=Path,
+                   help='source archives or directories')
+    args = p.parse_args()
+    args.command = p.prog
+    assert args.command in ['pack', 'unpack'], args.command
+    return args
+
+
+def get_pack_dst(src):
+    """Validate and return destination archive path for source directory."""
+    if not src.is_dir():
+        raise MyError('No such directory: {}'.format(src))
+    dst = Path(str(src) + '.zip')
+    if dst.exists():
+        raise MyError('Destination already exists: {}'.format(dst))
+    return dst
+
+
+def get_unpack_dst(src):
+    """Validate and return destination extraction directory for source
+    archive.
+    """
+    if src.is_dir():
+        raise MyError('Source is a directory: {}'.format(src))
+    dst = src.with_suffix('')  # Drop extension.
+    if not dst or dst == src:
+        raise MyError('Cannot construct destination: {}'.format(src))
+    if dst.exists():
+        raise MyError('Destination already exists: {}'.format(dst))
+    return dst
+
+
+def get_packer(src, dst):
+    """Packer command line."""
+    # CWD to source parent in order to prevent extra hierarchy inside archive.
+    cmd = fmt_args('7z a {dst} {src}', dst=dst.absolute(), src=src.name)
+    cwd = src.parent or None
+    return cmd, cwd
+
+
+def get_unpacker(src, dst):
+    """Unpacker command line."""
+    return fmt_args('7z x -o{dst} {src}', dst=dst, src=src), None
+
+
+def run(cmd, cwd=None):
+    """Run shell command line (in working dir). Return captured output. Raise
+    CalledProcessError on non-zero exit code.
+    """
+    output = subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT,
+                                     universal_newlines=True)
+    return output
+
+
+def pack(src, target=None):
+    """Pack source directory into an archive (under target directory)."""
+    if target is None:
+        target = src.parent
+    dst = get_pack_dst(src)
+    dst = target / dst.name
+    print('Packing to {}'.format(dst))
+    cmd, cwd = get_packer(src, dst)
+    output = run(cmd, cwd=str(cwd))
+    copy_times(src, dst)
+    return output
+
+
+# def unpack_(src, target=None):
+#     """Unpack source archive into a directory (under target directory)."""
+#     src = os.fspath(src)
+#     if target is None:
+#         target = os.path.dirname(src) or '.'
+#     try:
+#         tempdir = None
+#         # TODO: target must be combined to dst in get_unpack_dst()
+#         dst = get_unpack_dst(src)
+#         dst_base = os.path.basename(dst)
+#         dst = os.path.join(target, dst_base)
+#         tempdir = tempfile.mkdtemp(suffix='.tmp', prefix=dst_base + '.',
+#                                    dir=target)
+#         print('Unpacking to {} via {}'.format(dst, tempdir))
+#         cmd, cwd = get_unpacker(src, tempdir)
+#         output = run(cmd, cwd=cwd)
+#         if os.path.exists(tempdir):
+#             if all(x == dst_base for x in os.listdir(tempdir)):
+#                 # Has single element with destination name. Move to parent.
+#                 move(os.path.join(tempdir, dst_base), target)
+#             else:
+#                 # Has something else. Rename tempdir to destination.
+#                 os.rename(tempdir, dst)
+#                 copy_times(src, dst)
+#         return output
+#     finally:
+#         if tempdir is not None:
+#             rm_rf(tempdir)
+
+
+def unpack(src, target=None):
+    """Unpack source archive into a directory (under target directory)."""
+    if target is None:
+        target = src.parent
+    # TODO: target must be combined to dst in get_unpack_dst()
+    dst = get_unpack_dst(src)
+    dst_base = dst.name
+    dst = target / dst_base
+    d = dict(suffix='.tmp', prefix=dst_base + '.', dir=target)
+    with temp_dir(**d) as tempdir:
+        print('Unpacking to {} via {}'.format(dst, tempdir))
+        cmd, cwd = get_unpacker(src, tempdir)
+        output = run(cmd, cwd=cwd)
+        if tempdir.exists():
+            if all(x == dst_base for x in os.listdir(tempdir)):
+                # Has single element with destination name. Move to parent.
+                move(tempdir / dst_base, target)
+            else:
+                # Has something else. Rename tempdir to destination.
+                os.rename(tempdir, dst)
+                copy_times(src, dst)
+    return output
+
+
+def main():
+    """Main."""
+    args = parse_args()
+    logging.basicConfig(level=logging.INFO)
+    try:
+        target = None
+        if args.target:
+            if not target.is_dir():
+                raise MyError('Target is not a directory: {}'.format(target))
+        for src in args.src:
+            if args.command == 'pack':
+                output = pack(src, target=target)
+            elif args.command == 'unpack':
+                output = unpack(src, target=target)
+            if args.verbose:
+                print(output)
+            if args.delete:
+                rm_rf(src)
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        print(e)
+        return e.returncode
+    except MyError as e:
+        print(e)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

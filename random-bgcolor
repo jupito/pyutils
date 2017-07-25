@@ -1,0 +1,42 @@
+#!/usr/bin/python3
+
+"""Randomly choose terminal background color. Caller may provide seed."""
+
+# See https://github.com/sos4nt/dynamic-colors/blob/master/bin/dynamic-colors
+
+import random
+import sys
+
+import misc
+
+colors = (
+    """
+    rgb:ff/ee/ee
+    rgb:ee/ff/ee
+    rgb:ee/ee/ff
+    rgb:ff/ff/ee
+    rgb:ff/ee/ff
+    rgb:ee/ff/ff
+    """
+    """
+    rgb:ff/dd/dd
+    rgb:dd/ff/dd
+    rgb:dd/dd/ff
+    rgb:ff/ff/dd
+    rgb:ff/dd/ff
+    rgb:dd/ff/ff
+    """
+    ).split()
+
+
+def main():
+    """Main."""
+    if len(sys.argv) > 1:
+        random.seed(sys.argv[1])
+
+    color = random.choice(colors)
+    sys.stdout.write(misc.set_term_bg(color))
+
+
+if __name__ == '__main__':
+    sys.exit(main())

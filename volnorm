@@ -1,0 +1,135 @@
+#!/usr/bin/python3
+
+"""Normalize audio volume level."""
+
+# http://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification
+
+import json
+import logging
+from pathlib import Path
+from pprint import pprint
+import subprocess
+
+from pyutils.files import XAttr, temp_dir
+from pyutils.misc import fmt_args, get_basic_parser
+
+ATTR_PREFIX = 'user.loudness.'
+TAG_PREFIX = 'REPLAYGAIN_'
+
+
+def parse_args():
+    """Parse arguments."""
+    p = get_basic_parser(description=__doc__)
+    p.add_argument('-s', '--set', action='store_true',
+                   help='set extended attributes')
+    p.add_argument('-f', '--force', action='store_true',
+                   help='force setting xattrs')
+    p.add_argument('paths', nargs='+', type=Path,
+                   help='media file path')
+    return p.parse_args()
+
+
+def get_attrs(path):
+    """Get ReplayGain xattrs."""
+    attrs = XAttr(path)
+    rg = {k: v.decode('utf-8') for k, v in attrs.items() if
+          k.startswith(ATTR_PREFIX)}
+    return rg
+
+
+def tags_to_attrs(tags):
+    """Convert tags to xattrs."""
+    return {'{}{}'.format(ATTR_PREFIX, k.lower()): v for k, v in tags.items()}
+
+
+def set_attrs(path, tags, overwrite=False):
+    """Set extended attributes."""
+    attrs = tags_to_attrs(tags)
+    existing = XAttr(path)
+    if not overwrite and any(k in existing for k in attrs):
+        raise ValueError('Extended attribute already exists: {}'.format(path))
+    attrs = {k.encode('utf-8'): v.encode('utf-8') for k, v in attrs.items()}
+    # existing.update(attrs)  # Depends on iteritems().
+    for k, v in attrs.items():
+        existing[k] = v
+
+
+def get_tags(path):
+    """Read ReplayGain tags from media file."""
+    info = get_media_info(path) or {}
+    try:
+        d = info['format']['tags']
+        return {k: v for k, v in d.items() if k.startswith(TAG_PREFIX)}
+    except KeyError:
+        return None
+
+
+def get_media_info(path):
+    """Return information about media file as a string."""
+    s = 'ffprobe -hide_banner -loglevel fatal -show_format -of json {path}'
+    args = fmt_args(s, path=path)
+    try:
+        output = subprocess.check_output(args, universal_newlines=True)
+    except subprocess.CalledProcessError as e:
+        logging.error('Subprocess returned code %i:', e.returncode)
+        logging.debug(e.output)
+        return None
+    return json.loads(output)
+
+
+# TODO: check_call() may silently fail if input file invalid.
+def scan_loudness(paths, loglevel='fatal', analysis_file='/tmp/_out_bs'):
+    """Scan loudness in media files and return ReplayGain tags."""
+    # tagtype = '--track-tags --album-tags'
+    tagtype = '--track-tags'
+    calc = '-ismrp'  # True peak (t) is slow.
+    d = dict(t=tagtype, c=calc, l=loglevel, f=analysis_file)
+    s = 'bs1770gain {t} {c} --loglevel {l} -f {f} -o {o}'
+    with temp_dir() as outdir:
+        args = fmt_args(s, *paths, o=outdir, **d)
+        subprocess.check_call(args)
+        # Format (and thus suffix) may have been changed.
+        patterns = [x.with_suffix('.*').name for x in paths]
+        outpaths = [outdir.glob(x) for x in patterns]
+        outpaths = [x for x, in outpaths]
+        logging.debug([outdir, paths, outpaths, list(outdir.iterdir()),
+                       ' '.join(args)])
+        tags = [get_tags(x) for x in outpaths]
+    assert len(tags) == len(paths) and all(tags), tags
+    return tags
+
+
+def main():
+    """Main."""
+    args = parse_args()
+    attrs = []
+    tags = []
+    for path in args.paths:
+        rga = get_attrs(path)
+        rgt = get_tags(path)
+        attrs.append(rga)
+        tags.append(rgt)
+        if args.verbose:
+            pprint(rga)
+            pprint(rgt)
+        rga = len(rga) if rga else '-'
+        rgt = len(rgt) if rgt else '-'
+        print('{} {} {}'.format(rga, rgt, path))
+    if args.set:
+        if not args.force and any(attrs):
+            print('Some have already.')
+            return
+        if args.verbose:
+            print('Scanning {} files...'.format(len(args.paths)))
+        tags = scan_loudness(args.paths)
+        if args.verbose:
+            print('Setting xattrs for {} files...'.format(len(args.paths)))
+        for path, tagset in zip(args.paths, tags):
+            try:
+                set_attrs(path, tagset, overwrite=args.force)
+            except ValueError as e:
+                print(e)
+
+
+if __name__ == '__main__':
+    main()

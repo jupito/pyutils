@@ -1,0 +1,81 @@
+#!/usr/bin/python3
+
+"""Join input lines that start with whitespace."""
+
+import sys
+
+
+class LineJoiner(object):
+    def __init__(self, stream, sep=' '):
+        self.stream = stream
+        self.sep = sep
+        self.lines = []
+
+    def __del__(self):
+        self.flush()
+
+    def flush(self):
+        """Flush."""
+        if self.lines:
+            self.stream.write(self.sep.join(self.lines) + '\n')
+            self.lines = []
+
+    def write(self, s):
+        """Write text."""
+        def is_indented(line):
+            """Tell whether line is indented."""
+            return line and line[0].isspace()
+
+        for line in s.split('\n'):
+            if not is_indented(line):
+                self.flush()
+            self.lines.append(line.strip())
+
+
+def read():
+    """Read strings."""
+    for line in sys.stdin:
+        yield line.rstrip('\n')
+
+
+# def write(*strings):
+#     """Write strings."""
+#     for s in strings:
+#         sys.stdout.write(s)
+
+
+def get_separator():
+    """Get separator string."""
+    # if len(sys.argv) > 1:
+    #     return sys.argv[1]
+    # return ' '
+    try:
+        return sys.argv[1]
+    except IndexError:
+        return ' '
+
+
+def main():
+    """Main."""
+    # sep = get_separator()
+
+    # line_begun = False
+    # for line in read():
+    #     if line_begun:
+    #         if line and line[0].isspace():
+    #             write(sep, line.lstrip())
+    #         else:
+    #             write('\n', line)
+    #     else:
+    #         write(line)
+    #         line_begun = True
+    # if line_begun:
+    #     write('\n')
+
+    joiner = LineJoiner(sys.stdout, sep=get_separator())
+    for line in read():
+        joiner.write(line)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

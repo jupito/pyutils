@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+
+"""Convert certain kind of text to JSON."""
+
+from collections import OrderedDict
+import json
+import sys
+
+
+def write(obj):
+    """Write object as JSON."""
+    print(json.dumps(obj))
+
+
+def parse(stream):
+    """Parse and yield objects from text."""
+    lst = []
+    d = OrderedDict()
+    for line in stream:
+        line = line.split('#', 1)[0].strip()
+        tokens = line.split(':', 1)
+        if len(tokens) == 2:
+            if lst:
+                yield lst
+                lst = []
+            k, v = tokens
+            k = k.strip()
+            v = v.strip()
+            if k in d:
+                yield d
+                d = OrderedDict()
+            d[k] = v
+        if len(tokens) == 1:
+            if d:
+                yield d
+                d = OrderedDict()
+            v, = tokens
+            v = v.strip()
+            if v:
+                lst.append(v)
+            elif lst:
+                yield lst
+                lst = []
+    if lst:
+        yield lst
+    if d:
+        yield d
+
+
+def main():
+    """Main."""
+    for obj in parse(sys.stdin):
+        write(obj)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
