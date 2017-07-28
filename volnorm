@@ -6,12 +6,13 @@
 
 import json
 import logging
+import subprocess
 from pathlib import Path
 from pprint import pprint
-import subprocess
 
+from pyutils.args import get_basic_parser
 from pyutils.files import XAttr, temp_dir
-from pyutils.misc import fmt_args, get_basic_parser
+from pyutils.misc import fmt_args
 
 ATTR_PREFIX = 'user.loudness.'
 TAG_PREFIX = 'REPLAYGAIN_'
