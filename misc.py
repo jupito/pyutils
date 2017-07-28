@@ -1,9 +1,7 @@
 """Miscellaneous utility funcionality."""
 
 import argparse
-from functools import lru_cache
 import logging
-from pathlib import Path, PurePath
 import os
 import platform
 import shlex
@@ -11,6 +9,8 @@ import shutil
 import subprocess
 import sys
 import urllib
+from functools import lru_cache
+from pathlib import Path, PurePath
 
 
 class DefaultValueHelpFormatter(argparse.HelpFormatter):
