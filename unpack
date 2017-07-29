@@ -8,15 +8,18 @@ extracts foo.zip to directory foo.
 
 import logging
 import os
+import subprocess
+import sys
 try:
     from pathlib2 import Path
 except ImportError:
     from pathlib import Path
-import subprocess
-import sys
+
+from args import get_basic_parser
 
 from files import copy_times, move, rm_rf, temp_dir
-from misc import fmt_args, get_basic_parser
+
+from misc import fmt_args
 
 
 class MyError(Exception):
