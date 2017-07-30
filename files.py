@@ -11,6 +11,11 @@ import tempfile
 
 class XAttr(MutableMapping):
     """Dict-like interface to extended attributes."""
+    # TODO: Use functools.partialmethod().
+    MIME_TYPE = 'user.mime_type'
+    ORIGIN_URL = 'user.xdg.origin.url'
+    MD5SUM = 'user.md5sum'
+
     def __init__(self, path, follow_symlinks=True):
         self.path = os.fspath(path)
         self.follow_symlinks = follow_symlinks
@@ -24,7 +29,6 @@ class XAttr(MutableMapping):
                 raise KeyError(*args)
             raise
 
-    # TODO: Use functools.partialmethod().
     def _list(self):
         """Read attribute names."""
         return self._wrapper(os.listxattr)
