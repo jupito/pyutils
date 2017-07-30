@@ -12,6 +12,7 @@ from pathlib import Path
 class XAttr(MutableMapping):
     """Dict-like interface to extended attributes."""
     # TODO: Use functools.partialmethod().
+    # See: https://www.freedesktop.org/wiki/CommonExtendedAttributes/
     MD5SUM = 'user.md5sum'
     MIME_TYPE = 'user.mime_type'
     ORIGIN_URL = 'user.xdg.origin.url'
