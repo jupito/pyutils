@@ -61,7 +61,7 @@ class XAttrStr(XAttr):
         return super().__getitem__(key).decode('utf-8')
 
     def __setitem__(self, key, value):
-        super().__setitem__(key, value.decode('utf-8'))
+        super().__setitem__(key, value.encode('utf-8'))
 
 
 @contextmanager
