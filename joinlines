@@ -34,8 +34,7 @@ class LineJoiner(object):
 
 def read():
     """Read strings."""
-    for line in sys.stdin:
-        yield line.rstrip('\n')
+    yield from (x.rstrip('\n') for x in sys.stdin)
 
 
 # def write(*strings):
