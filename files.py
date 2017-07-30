@@ -107,12 +107,10 @@ def sanitize_line(line, commenter='#'):
     return line.split(commenter, 1)[0].strip()
 
 
-def valid_lines(path, commenter='#'):
+def valid_lines(path):
     """Read and yield lines that are neither empty nor comments."""
-    with open(path, 'r') as fp:
-        lines = (sanitize_line(x, commenter=commenter) for x in fp)
-        for line in filter(None, lines):
-            yield line
+    with Path(path).open() as fp:
+        yield from filter(None, (sanitize_line(x) for x in fp))
 
 
 def copy_times(src, dst):
