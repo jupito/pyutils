@@ -51,6 +51,15 @@ class XAttr(MutableMapping):
         return '{0.__class__.__name__}({0.path!r})'.format(self)
 
 
+class XAttrStr(XAttr):
+    """XAttr for strings. Automatically convert to and from bytes."""
+    def __getitem__(self, key):
+        return super().__getitem__(key).decode('utf-8')
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value.decode('utf-8'))
+
+
 @contextmanager
 def temp_dir(**kwargs):
     """A temporary directory context that deletes it afterwards."""
