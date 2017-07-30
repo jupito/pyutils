@@ -1,20 +1,20 @@
 """Paths, files, and such."""
 
+import logging
+import os
+import shutil
+import tempfile
 from collections.abc import MutableMapping
 from contextlib import contextmanager
-import logging
-import shutil
-import os
 from pathlib import Path
-import tempfile
 
 
 class XAttr(MutableMapping):
     """Dict-like interface to extended attributes."""
     # TODO: Use functools.partialmethod().
+    MD5SUM = 'user.md5sum'
     MIME_TYPE = 'user.mime_type'
     ORIGIN_URL = 'user.xdg.origin.url'
-    MD5SUM = 'user.md5sum'
 
     def __init__(self, path, follow_symlinks=True):
         self.path = os.fspath(path)
