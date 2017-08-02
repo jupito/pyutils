@@ -10,28 +10,30 @@ from pathlib import Path
 
 
 class XAttr(MutableMapping):
-    """Dict-like interface to extended attributes."""
-    # TODO: Use functools.partialmethod().
-    # See: https://www.freedesktop.org/wiki/CommonExtendedAttributes/
-    MD5SUM = 'user.md5sum'
-    MIME_TYPE = 'user.mime_type'
-    ORIGIN_URL = 'user.xdg.origin.url'
+    """Dict-like interface to extended attributes. Listing, reading, and
+    writing is done immediately.
+
+    Some common attribute names include `user.md5sum`, `user.mime_type`,
+    `user.xdg.origin.url`. See
+    https://www.freedesktop.org/wiki/CommonExtendedAttributes/ for more.
+    """
 
     def __init__(self, path, follow_symlinks=True):
         self.path = os.fspath(path)
         self.follow_symlinks = follow_symlinks
 
-    def _wrapper(self, f, *args):
+    def _wrapper(self, func, *args):
         """General wrapper with follow_symlinks and KeyError."""
         try:
-            return f(self.path, *args, follow_symlinks=self.follow_symlinks)
+            return func(self.path, *args, follow_symlinks=self.follow_symlinks)
         except OSError as e:
             if e.errno == 61:
                 raise KeyError(*args)
             raise
 
     def _list(self):
-        """Read attribute names."""
+        """Read and return attribute keys."""
+        # XXX: Should this be renamed to "keys" even if it returns a list?
         return self._wrapper(os.listxattr)
 
     def __getitem__(self, key):
@@ -54,6 +56,9 @@ class XAttr(MutableMapping):
 
     def __repr__(self):
         return '{0.__class__.__name__}({0.path!r})'.format(self)
+
+    def __str__(self):
+        return '{}{}'.format(self.path, self._list())
 
 
 class XAttrStr(XAttr):
