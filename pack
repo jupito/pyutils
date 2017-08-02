@@ -78,16 +78,17 @@ def get_packer(src: PurePath, dst: PurePath) -> Tuple[List[str],
 def get_unpacker(src: PurePath, dst: PurePath) -> Tuple[List[str],
                                                         Optional[PurePath]]:
     """Unpacker command line."""
-    return fmt_args('7z x -o{dst} {src}', dst=dst, src=src), None
+    cmd = fmt_args('7z x -o{dst} {src}', dst=dst, src=src)
+    cwd = None
+    return cmd, cwd
 
 
-def run(cmd: Sequence[str], cwd: str = None) -> str:
+def run(cmd: Sequence[str], cwd: PurePath = None) -> str:
     """Run shell command line (in working dir). Return captured output. Raise
     CalledProcessError on non-zero exit code.
     """
-    output = subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT,
-                                     universal_newlines=True)
-    return output
+    return subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT,
+                                   universal_newlines=True)
 
 
 def pack(src: PurePath, target: PurePath = None) -> str:
@@ -98,7 +99,7 @@ def pack(src: PurePath, target: PurePath = None) -> str:
     dst = target / dst.name
     print('Packing to {}'.format(dst))
     cmd, cwd = get_packer(src, dst)
-    output = run(cmd, cwd=str(cwd))
+    output = run(cmd, cwd=cwd)
     copy_times(src, dst)
     return output
 
