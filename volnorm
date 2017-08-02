@@ -11,7 +11,7 @@ from pathlib import Path
 from pprint import pprint
 
 from pyutils.args import get_basic_parser
-from pyutils.files import XAttr, temp_dir
+from pyutils.files import XAttrStr, temp_dir
 from pyutils.misc import fmt_args
 
 ATTR_PREFIX = 'user.loudness.'
@@ -32,10 +32,10 @@ def parse_args():
 
 def get_attrs(path):
     """Get ReplayGain xattrs."""
-    attrs = XAttr(path)
-    rg = {k: v.decode('utf-8') for k, v in attrs.items() if
-          k.startswith(ATTR_PREFIX)}
-    return rg
+    attrs = XAttrStr(path)
+    # rg = {k: v.decode('utf-8') for k, v in attrs.items() if
+    # return rg
+    return {k: v for k, v in attrs.items() if k.startswith(ATTR_PREFIX)}
 
 
 def tags_to_attrs(tags):
@@ -46,10 +46,10 @@ def tags_to_attrs(tags):
 def set_attrs(path, tags, overwrite=False):
     """Set extended attributes."""
     attrs = tags_to_attrs(tags)
-    existing = XAttr(path)
+    existing = XAttrStr(path)
     if not overwrite and any(k in existing for k in attrs):
         raise ValueError('Extended attribute already exists: {}'.format(path))
-    attrs = {k.encode('utf-8'): v.encode('utf-8') for k, v in attrs.items()}
+    # attrs = {k.encode('utf-8'): v.encode('utf-8') for k, v in attrs.items()}
     # existing.update(attrs)  # Depends on iteritems().
     for k, v in attrs.items():
         existing[k] = v
