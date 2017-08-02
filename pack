@@ -11,9 +11,10 @@ import os
 import subprocess
 import sys
 try:
-    from pathlib2 import Path
+    from pathlib2 import Path, PurePath
 except ImportError:
-    from pathlib import Path
+    from pathlib import Path, PurePath
+from typing import List, Optional, Sequence, Tuple
 
 from args import get_basic_parser
 
@@ -41,7 +42,7 @@ def parse_args():
     return args
 
 
-def get_pack_dst(src):
+def get_pack_dst(src: PurePath) -> PurePath:
     """Validate and return destination archive path for source directory."""
     if not src.is_dir():
         raise MyError('No such directory: {}'.format(src))
@@ -51,7 +52,7 @@ def get_pack_dst(src):
     return dst
 
 
-def get_unpack_dst(src):
+def get_unpack_dst(src: PurePath) -> PurePath:
     """Validate and return destination extraction directory for source
     archive.
     """
@@ -65,7 +66,8 @@ def get_unpack_dst(src):
     return dst
 
 
-def get_packer(src, dst):
+def get_packer(src: PurePath, dst: PurePath) -> Tuple[List[str],
+                                                      Optional[PurePath]]:
     """Packer command line."""
     # CWD to source parent in order to prevent extra hierarchy inside archive.
     cmd = fmt_args('7z a {dst} {src}', dst=dst.absolute(), src=src.name)
@@ -73,12 +75,13 @@ def get_packer(src, dst):
     return cmd, cwd
 
 
-def get_unpacker(src, dst):
+def get_unpacker(src: PurePath, dst: PurePath) -> Tuple[List[str],
+                                                        Optional[PurePath]]:
     """Unpacker command line."""
     return fmt_args('7z x -o{dst} {src}', dst=dst, src=src), None
 
 
-def run(cmd, cwd=None):
+def run(cmd: Sequence[str], cwd: str = None) -> str:
     """Run shell command line (in working dir). Return captured output. Raise
     CalledProcessError on non-zero exit code.
     """
@@ -87,7 +90,7 @@ def run(cmd, cwd=None):
     return output
 
 
-def pack(src, target=None):
+def pack(src: PurePath, target: PurePath = None) -> str:
     """Pack source directory into an archive (under target directory)."""
     if target is None:
         target = src.parent
@@ -100,7 +103,7 @@ def pack(src, target=None):
     return output
 
 
-# def unpack_(src, target=None):
+# def unpack_(src: PurePath, target: PurePath = None):
 #     """Unpack source archive into a directory (under target directory)."""
 #     src = os.fspath(src)
 #     if target is None:
@@ -130,7 +133,7 @@ def pack(src, target=None):
 #             rm_rf(tempdir)
 
 
-def unpack(src, target=None):
+def unpack(src: PurePath, target: PurePath = None) -> str:
     """Unpack source archive into a directory (under target directory)."""
     if target is None:
         target = src.parent
