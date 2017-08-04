@@ -136,6 +136,10 @@ def download(url, dst_path, tmp_path=None, progress=True):
     def report(cnt, blksize, total):
         """Reporter callback."""
         d = dict(d=truncate(os.fspath(dst_path), reserved=15))
+        if total == 0:
+            s = 'Download seems to be empty: %s'
+            logging.warning(s, shlex.quote(dst_path))
+            total = -1
         if total == -1:
             s = '\r{d}: {p} '
             d.update(p=fmt_size(cnt * blksize))
