@@ -140,7 +140,7 @@ def rm_rf(path):
     """Recursively remove path, whatever it is, if it exists. Like rm -rf."""
     path = os.fspath(path)
     if os.path.exists(path):
-        logging.info('Removing: %s', format(path))
+        logging.debug('Removing: %s', format(path))
         if os.path.isdir(path):
             shutil.rmtree(path)
         else:
@@ -151,8 +151,8 @@ def trash_or_rm(path):
     """Send to trash if possible, otherwise remove."""
     try:
         from send2trash import send2trash
-        logging.warning('Sending to trash: %s', path)
+        logging.debug('Sending to trash: %s', path)
         send2trash(os.fspath(path))
     except ImportError:
-        logging.warning('Removing: %s', path)
+        logging.debug('Removing: %s', path)
         Path(path).unlink()
