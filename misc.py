@@ -18,6 +18,14 @@ def clamp(value, mn, mx):
     return max(min(value, mx), mn)
 
 
+def int_or_float(x):
+    """Return `x` as `int` if possible, or as `float` otherwise."""
+    x = float(x)
+    if x.is_integer():
+        return int(x)
+    return x
+
+
 def asline(iterable, sep=' ', end='\n'):
     """Convert an iterable into a line."""
     return sep.join(str(x) for x in iterable) + end
@@ -133,6 +141,7 @@ def get_hostname():
 def download(url, dst_path, tmp_path=None, progress=True):
     """Download file, showing optional progress meter."""
     # TODO: Use newer py3 libs.
+    # TODO: Use notifications: notify-send -h int:value:42 "Working ..."
     def report(cnt, blksize, total):
         """Reporter callback."""
         d = dict(d=truncate(os.fspath(dst_path), reserved=15))
@@ -147,6 +156,7 @@ def download(url, dst_path, tmp_path=None, progress=True):
             s = '\r{d}: {t} {p:.0%} '
             d.update(t=fmt_size(total), p=min(cnt * blksize / total, 1))
         print(s.format(**d), end='', flush=True)
+        print(set_term_title(s[1:].format(**d)), end='', flush=True)
 
     d = {}
     if tmp_path is not None:
