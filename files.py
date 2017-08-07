@@ -145,3 +145,14 @@ def rm_rf(path):
             shutil.rmtree(path)
         else:
             os.remove(path)
+
+
+def trash_or_rm(path):
+    """Send to trash if possible, otherwise remove."""
+    try:
+        from send2trash import send2trash
+        logging.warning('Sending to trash: %s', path)
+        send2trash(os.fspath(path))
+    except ImportError:
+        logging.warning('Removing: %s', path)
+        Path(path).unlink()
