@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from collections.abc import MutableMapping
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 
 class XAttr(MutableMapping):
@@ -68,6 +68,36 @@ class XAttrStr(XAttr):
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value.encode('utf-8'))
+
+
+class ExtPath(PosixPath):
+    """PosixPath extended for convenience."""
+    @property
+    def suffix_(self):
+        """Greedy version of suffix."""
+        return ''.join(self.suffixes)
+
+    @property
+    def stem_(self):
+        """Stem for greedy suffix."""
+        return self.name[:-len(self.suffix_)]
+
+    @property
+    def xattr(self):
+        return XAttr(self)
+
+    @property
+    def xattr_str(self):
+        return XAttrStr(self)
+
+    def ensure_parent(self):
+        """Create parent directory if not already there."""
+        self.parent.mkdir(parents=True, exist_ok=True)
+
+    def trash(self):
+        """Send to trash."""
+        from send2trash import send2trash
+        send2trash(self.__fspath__())
 
 
 @contextmanager
