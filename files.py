@@ -117,16 +117,16 @@ def temp_dir(**kwargs):
 @contextmanager
 def tempfile_and_backup(path, mode, bakext='.bak', **kwargs):
     """Create a temporary file for writing, do backup, replace destination."""
-    path = os.fspath(path)
-    if os.path.exists(path) and not os.path.isfile(path):
+    path = Path(path)
+    if path.exists() and not path.is_file():
         raise IOError('Not a regular file: {}'.format(path))
     with tempfile.NamedTemporaryFile(mode=mode, delete=False, **kwargs) as fp:
         try:
             yield fp
             fp.close()
-            if os.path.exists(path):
-                shutil.copy2(path, path + bakext)
-            shutil.move(fp.name, path)
+            if path.exists():
+                shutil.copy2(path.__fspath__(), path.__fspath__() + bakext)
+            shutil.move(fp.name, path.__fspath__())
         finally:
             fp.close()
             if os.path.exists(fp.name):
