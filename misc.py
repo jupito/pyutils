@@ -9,6 +9,7 @@ import subprocess
 import sys
 import urllib
 from functools import lru_cache
+from itertools import chain
 from pathlib import PurePath
 
 
@@ -77,15 +78,42 @@ def ring_bell():
     return '\a'
 
 
-def notify_send(summary, body=None, urgency='normal'):
-    """Send notification."""
-    # TODO
-    d = dict(u=urgency, s=summary)
-    s = 'notify-send -u {u} {s}'
-    lst = fmt_args(s, **d)
+def notify_send(summary, body=None, urgency=None, expire_time=None,
+                app_name=None, icons=None, categories=None, hints=None,
+                fgcolor=None, bgcolor=None, progress=None):
+    """Send notification.
+
+    At least dunst supports fgcolor, bgcolor, progress.
+    """
+    def _hint(typ, name, value):
+        assert typ in ['int', 'double', 'string', 'byte'], typ
+        return ['-h', '{}:{}:{}'.format(typ, name, value)]
+
+    args = ['notify-send', summary]
     if body is not None:
-        lst.append(body)
-    return lst
+        args.append(body)
+    if urgency is not None:
+        assert urgency in ['low', 'normal', 'critical'], urgency
+        args.extend(['-u', urgency])
+    if expire_time is not None:
+        args.extend(['-t', str(expire_time)])
+    if app_name is not None:
+        args.extend(['-a', app_name])
+    if icons:
+        args.extend(['-i', ','.join(icons)])
+    if categories:
+        args.extend(['-c', ','.join(categories)])
+    if hints:
+        args.extend(chain.from_iterable(_hint(*x) for x in hints))
+    if fgcolor is not None:
+        args.extend(_hint('string', 'fgcolor', fgcolor))
+    if bgcolor is not None:
+        args.extend(_hint('string', 'bgcolor', bgcolor))
+    if progress is not None:
+        assert 0 <= progress <= 100, progress
+        args.extend(_hint('int', 'value', progress))
+    logging.debug('Running: %s', args)
+    subprocess.check_call(args)
 
 
 def truncate(s, reserved=0, columns=None, ellipsis='…', minimum_length=2):
