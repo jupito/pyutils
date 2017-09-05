@@ -82,13 +82,13 @@ class ExtPath(PosixPath):
         """Stem for greedy suffix."""
         return self.name[:-len(self.suffix_)]
 
-    @property
-    def xattr(self):
-        return XAttr(self)
+    # @property
+    # def xattr(self):
+    #     return XAttr(self)
 
-    @property
-    def xattr_str(self):
-        return XAttrStr(self)
+    # @property
+    # def xattr_str(self):
+    #     return XAttrStr(self)
 
     def ensure_parent(self):
         """Create parent directory if not already there."""
