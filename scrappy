@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+
+"""Scrape web."""
+
+import sys
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+
+# parser = 'html.parser'
+parser = 'lxml'
+# parser = 'lxml-xml'
+# parser = 'html5lib'
+
+assert len(sys.argv) > 1, 'Please give me an URL.'
+url = sys.argv[1]
+
+with urlopen(url) as fp:
+    print(fp.geturl())
+    print(fp.getcode())
+    print(fp.info())
+    soup = BeautifulSoup(fp, parser)
+
+print('Title: {}'.format(soup.title.string.strip()))
+
+# tags = soup.find_all()
+tags = soup.find_all('link')
+
+for tag in tags:
+    d = tag.attrs
+    href = d.pop('href', '-')
+    print(href, d)
