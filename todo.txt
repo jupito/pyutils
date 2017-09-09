@@ -1,0 +1,4 @@
+(B) 2017-09-08 +check packages: attrs automat constantly hyperlink incremental zope-interface twisted
+(B) 2017-09-08 +check packages: docopt, (related ones at pypi), click, https://realpython.com/blog/python/comparing-python-command-line-parsing-libraries-argparse-docopt-click/
+(B) 2017-09-08 +check blessings, blessed
+(B) 2017-09-08 +write a pager that splits input into 2 or more simultaneous columns
