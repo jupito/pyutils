@@ -49,10 +49,10 @@ def fmt_size(n, unit='B'):
     return '{:.0f}{}{}'.format(n, prefix, unit)
 
 
-def fmt_args(cmd, *args, **kwargs):
+def fmt_args(_cmd, *args, **kwargs):
     """Split first, then format. To easily have arguments with spaces."""
-    return [x.format(**kwargs) for x in shlex.split(cmd)] + [os.fspath(x) for x
-                                                             in args]
+    return [x.format(**kwargs) for x in shlex.split(_cmd)] + [os.fspath(x) for
+                                                              x in args]
 
 
 def esc_seq(n, s):
