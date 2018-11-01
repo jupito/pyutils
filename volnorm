@@ -84,14 +84,19 @@ def scan_loudness(paths, loglevel='fatal', analysis_file='/tmp/_out_bs'):
     # tagtype = '--track-tags --album-tags'
     tagtype = '--track-tags'
     calc = '-ismrp'  # True peak (t) is slow.
-    d = dict(t=tagtype, c=calc, l=loglevel, f=analysis_file)
-    s = 'bs1770gain {t} {c} --loglevel {l} -f {f} -o {o}'
+    d = dict(t=tagtype, c=calc, ll=loglevel, f=analysis_file)
+    s = 'bs1770gain {t} {c} --loglevel {ll} -f {f} -o {o}'
     with temp_dir() as outdir:
         args = fmt_args(s, *paths, o=outdir, **d)
         subprocess.check_call(args)
         # Format (and thus suffix) may have been changed.
         patterns = [x.with_suffix('.*').name for x in paths]
+
+        # KLUDGE: Handle [ and ] in filenames. TODO: Something better.
+        patterns = [x.replace('[', '?').replace(']', '?') for x in patterns]
+
         outpaths = [outdir.glob(x) for x in patterns]
+        logging.debug([str(x) for x in outdir.glob('*')])
         outpaths = [x for x, in outpaths]
         logging.debug([outdir, paths, outpaths, list(outdir.iterdir()),
                        ' '.join(args)])
