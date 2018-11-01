@@ -2,30 +2,83 @@
 
 """Scrape web."""
 
-import sys
+from functools import lru_cache
+from http import HTTPStatus
 from urllib.request import urlopen
+# import urllib3
+# import requests
+
 from bs4 import BeautifulSoup
+import click
 
-# parser = 'html.parser'
-parser = 'lxml'
-# parser = 'lxml-xml'
-# parser = 'html5lib'
+# PARSER = 'html.parser'
+PARSER = 'lxml'
+# PARSER = 'lxml-xml'
+# PARSER = 'html5lib'
 
-assert len(sys.argv) > 1, 'Please give me an URL.'
-url = sys.argv[1]
 
-with urlopen(url) as fp:
-    print(fp.geturl())
-    print(fp.getcode())
-    print(fp.info())
-    soup = BeautifulSoup(fp, parser)
+class Scrappy(object):
+    def __init__(self, url, parser=PARSER):
+        self._url = url
+        self._response = urlopen(url)
+        self._soup = BeautifulSoup(self._response, parser)
 
-print('Title: {}'.format(soup.title.string.strip()))
+    @property
+    def url(self):
+        return self._url
 
-# tags = soup.find_all()
-tags = soup.find_all('link')
+    @property
+    def real_url(self):
+        return self._response.geturl()
 
-for tag in tags:
-    d = tag.attrs
-    href = d.pop('href', '-')
-    print(href, d)
+    @property
+    @lru_cache(maxsize=None)
+    def code(self):
+        try:
+            return HTTPStatus(self._response.getcode())
+        except ValueError:
+            return None
+
+    @property
+    @lru_cache(maxsize=None)
+    def info(self):
+        return self._response.info().items()
+
+    @property
+    @lru_cache(maxsize=None)
+    def title(self):
+        title = self._soup.title
+        if title is None:
+            return None
+        return title.string.strip()
+
+    def links(self):
+        # tags = self._soup.find_all()
+        tags = self._soup.find_all('link')
+        for tag in tags:
+            d = tag.attrs
+            href = d.pop('href', '-')
+            yield href, d
+
+
+@click.command()
+@click.argument('url')
+def cli(url):
+    echo = click.echo
+    scr = Scrappy(url)
+
+    if scr.code:
+        echo((scr.code.value, scr.code.name))
+    echo(scr.url)
+    echo(scr.real_url)
+    for i, (k, v) in enumerate(scr.info):
+        echo('{:4}: {}: {}'.format(i, k, v))
+
+    echo('Title: {}'.format(scr.title))
+    echo('Links: -')
+    for i, (href, d) in enumerate(scr.links()):
+        echo('{:4}: {}: {}'.format(i, href, d))
+
+
+if __name__ == '__main__':
+    cli()
